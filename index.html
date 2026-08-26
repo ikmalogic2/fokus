@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zen Pomodoro - Timer Fokus Minimalis</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 9999px;
+        }
+        
+        /* Tabular numbers to prevent layout shift on countdown */
+        .font-timer {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.04em;
+        }
+
+        /* Ambient subtle pulse */
+        @keyframes subtle-pulse {
+            0%, 100% { transform: scale(1); opacity: 0.15; }
+            50% { transform: scale(1.08); opacity: 0.25; }
+        }
+        .animate-subtle-glow {
+            animation: subtle-pulse 8s ease-in-out infinite;
+        }
+
+        /* Smooth ring transition */
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        /* Glassmorphism subtle background */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex items-center justify-center p-4 transition-colors duration-500 font-sans antialiased overflow-x-hidden selection:bg-emerald-500 selection:text-slate-950">
+
+    <!-- SETUP CONTAINER (Card Single View) -->
+    <div id="setup-view" class="w-full max-w-md my-auto transition-all duration-300">
+        
+        <!-- Main Unified Card -->
+        <div class="w-full bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl dark:shadow-2xl shadow-slate-200/60 dark:shadow-emerald-950/20 flex flex-col gap-6 relative backdrop-blur-xl transition-colors duration-300">
+            
+            <!-- HEADER & THEME TOGGLE -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-base font-bold tracking-tight text-slate-900 dark:text-white leading-tight font-display">Zen Pomodoro</h1>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Timer Fokus & Ambien Suara</p>
+                    </div>
+                </div>
+
+                <!-- Dark / Light Theme Toggle -->
+                <button type="button" onclick="toggleTheme()" id="theme-btn"
+                    title="Ubah Mode Gelap/Terang"
+                    class="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition border border-slate-200 dark:border-slate-700/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                    <svg id="theme-sun" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <svg id="theme-moon" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- DURATION SECTION -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-[11px] font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">Durasi Sesi</label>
+                    <span id="duration-val" class="text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">25 Menit</span>
+                </div>
+                
+                <!-- Quick Preset Chips -->
+                <div class="grid grid-cols-4 gap-2">
+                    <button type="button" onclick="setPreset(15)" class="preset-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/40 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition">15m</button>
+                    <button type="button" onclick="setPreset(25)" class="preset-btn active py-2 text-xs font-semibold rounded-xl border border-emerald-500/60 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition">25m</button>
+                    <button type="button" onclick="setPreset(45)" class="preset-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/40 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition">45m</button>
+                    <button type="button" onclick="setPreset(60)" class="preset-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/40 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition">60m</button>
+                </div>
+
+                <!-- Custom Slider -->
+                <input type="range" id="duration-slider" min="1" max="120" value="25" step="1" 
+                    class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 dark:accent-emerald-400">
+            </div>
+
+            <!-- SOUND SELECTION SECTION -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="block text-[11px] font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">Suara Ambien Latar</label>
+                    <span class="text-[10px] text-slate-400 dark:text-slate-500">13 Pilihan Suara</span>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-2 max-h-52 overflow-y-auto pr-1 border border-slate-200/60 dark:border-slate-800/60 p-1.5 rounded-2xl bg-slate-50/50 dark:bg-slate-950/30">
+                    <!-- Rain -->
+                    <button type="button" onclick="selectSound('rain')" id="sound-rain" class="sound-card active flex flex-col items-center justify-center p-2.5 rounded-xl border border-emerald-500/60 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition text-center gap-1">
+                        <span class="text-base">🌧️</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-200">Hujan</span>
+                    </button>
+
+                    <!-- Thunder -->
+                    <button type="button" onclick="selectSound('thunder')" id="sound-thunder" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">⛈️</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Badai</span>
+                    </button>
+
+                    <!-- Waves -->
+                    <button type="button" onclick="selectSound('waves')" id="sound-waves" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">🌊</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Ombak</span>
+                    </button>
+
+                    <!-- Campfire -->
+                    <button type="button" onclick="selectSound('campfire')" id="sound-campfire" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">🪵</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Api Unggun</span>
+                    </button>
+
+                    <!-- Wind -->
+                    <button type="button" onclick="selectSound('wind')" id="sound-wind" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">🍃</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Angin</span>
+                    </button>
+
+                    <!-- Clock -->
+                    <button type="button" onclick="selectSound('clock')" id="sound-clock" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">⏱️</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Detik Jam</span>
+                    </button>
+
+                    <!-- Stream -->
+                    <button type="button" onclick="selectSound('stream')" id="sound-stream" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">💧</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Gemericik</span>
+                    </button>
+
+                    <!-- Crickets -->
+                    <button type="button" onclick="selectSound('crickets')" id="sound-crickets" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">🦗</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Jangkrik</span>
+                    </button>
+
+                    <!-- Cafe -->
+                    <button type="button" onclick="selectSound('cafe')" id="sound-cafe" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">☕</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Kafe</span>
+                    </button>
+
+                    <!-- Binaural Alpha -->
+                    <button type="button" onclick="selectSound('binaural')" id="sound-binaural" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">🧠</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Gel. Alpha</span>
+                    </button>
+
+                    <!-- Space Drone -->
+                    <button type="button" onclick="selectSound('space')" id="sound-space" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">🌌</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Kosmik</span>
+                    </button>
+
+                    <!-- Brown Noise -->
+                    <button type="button" onclick="selectSound('brownian')" id="sound-brownian" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">🎧</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Derau Cokelat</span>
+                    </button>
+
+                    <!-- None -->
+                    <button type="button" onclick="selectSound('none')" id="sound-none" class="sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300">
+                        <span class="text-base">🔕</span>
+                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">Hening</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- VOLUME SECTION -->
+            <div id="volume-container" class="flex items-center space-x-3 pt-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5" 
+                    class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 dark:accent-emerald-400">
+            </div>
+
+            <!-- ACTION BUTTON -->
+            <button type="button" id="start-btn" onclick="startFocusMode()" 
+                class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 dark:from-emerald-400 dark:to-teal-400 hover:from-emerald-600 hover:to-teal-600 dark:hover:from-emerald-300 dark:hover:to-teal-300 text-white dark:text-slate-950 font-bold text-sm tracking-wide shadow-lg shadow-emerald-500/20 transition-all duration-200 transform active:scale-[0.98] flex items-center justify-center space-x-2 mt-1">
+                <span>Mulai Fokus</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+            </button>
+
+        </div>
+    </div>
+
+    <!-- REDESIGNED MODERN MINIMALIST FOCUS VIEW -->
+    <div id="focus-view" class="fixed inset-0 bg-slate-950 text-white hidden flex-col items-center justify-center transition-opacity duration-700 z-50 select-none overflow-hidden">
+        
+        <!-- Ambient Background Soft Glows -->
+        <div class="absolute w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] animate-subtle-glow pointer-events-none"></div>
+        <div class="absolute w-[350px] h-[350px] bg-teal-600/10 rounded-full blur-[100px] pointer-events-none top-1/4 right-1/4"></div>
+
+        <!-- MAIN ZEN TIMER DISPLAY -->
+        <div class="relative flex flex-col items-center justify-center z-10">
+            
+            <!-- Dynamic SVG Modern Ring -->
+            <div class="relative flex items-center justify-center">
+                <svg class="w-72 h-72 sm:w-96 sm:h-96 md:w-[420px] md:h-[420px]" viewBox="0 0 200 200">
+                    <defs>
+                        <!-- Sleek Emerald Gradient for Timer Progress -->
+                        <linearGradient id="emeraldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#34d399" />
+                            <stop offset="100%" stop-color="#14b8a6" />
+                        </linearGradient>
+                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="4" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                    </defs>
+
+                    <!-- Background Inner Track Circle -->
+                    <circle class="stroke-slate-900" stroke-width="5" cx="100" cy="100" r="88" fill="transparent"></circle>
+                    
+                    <!-- Delicate Guideline Circle -->
+                    <circle stroke="rgba(255, 255, 255, 0.04)" stroke-width="1" cx="100" cy="100" r="88" fill="transparent"></circle>
+
+                    <!-- Smooth Animated Progress Ring -->
+                    <circle id="progress-bar" class="progress-ring-circle" 
+                            stroke="url(#emeraldGradient)" 
+                            stroke-width="5" 
+                            stroke-linecap="round" 
+                            cx="100" cy="100" r="88" fill="transparent" 
+                            stroke-dasharray="552.92" stroke-dashoffset="0"
+                            filter="url(#glow)"></circle>
+                </svg>
+
+                <!-- Centered Countdown Typography -->
+                <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                    
+                    <!-- Small Status Indicator -->
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span class="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400">SESI FOKUS</span>
+                    </div>
+
+                    <!-- Clean tabular digital text -->
+                    <div id="timer-display" class="font-timer text-6xl sm:text-7xl md:text-8xl font-extrabold tracking-tight text-white drop-shadow-xl my-1">
+                        25:00
+                    </div>
+
+                    <!-- Ambient Sound Chip Badge -->
+                    <div id="sound-indicator" class="mt-4 flex items-center space-x-2 text-xs font-medium text-slate-300 bg-slate-900/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-800 shadow-lg">
+                        <span>🌧️</span>
+                        <span>Hujan</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- FLOATING CONTROLS (Fades automatically on inactivity) -->
+        <div id="controls-bar" class="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center space-x-3 bg-slate-900/90 backdrop-blur-xl px-5 py-2.5 rounded-full border border-slate-800 shadow-2xl transition-opacity duration-500 opacity-100 z-20">
+            
+            <!-- Pause / Play Button -->
+            <button type="button" onclick="togglePause()" class="p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95 border border-slate-700/50" title="Pause / Resume">
+                <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </button>
+
+            <!-- Mute / Unmute Button -->
+            <button type="button" onclick="toggleMute()" id="mute-btn" class="p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95 border border-slate-700/50" title="Mute Suara">
+                <svg id="sound-on-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+                <svg id="sound-off-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+            </button>
+
+            <!-- Exit Session Button -->
+            <button type="button" onclick="stopFocusMode()" class="p-3 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition active:scale-95" title="Akhiri Sesi">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Sleek Finish Toast Modal (No alert()) -->
+        <div id="finish-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center z-50 p-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-sm w-full text-center space-y-4 shadow-2xl">
+                <div class="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto text-3xl">
+                    🎉
+                </div>
+                <h3 class="text-xl font-bold text-white font-display">Sesi Fokus Selesai!</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Selamat! Anda telah menyelesaikan waktu fokus. Istirahat sejenak dan segarkan pikiran Anda.</p>
+                <button type="button" onclick="closeFinishModal()" class="w-full py-3 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs uppercase tracking-wider transition">
+                    Kembali ke Beranda
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WEB AUDIO SYNTHESIZER (Pure Web Audio API - Advanced Sound Design)
+        class AmbientSynthEngine {
+            constructor() {
+                this.ctx = null;
+                this.currentSound = 'rain';
+                this.volume = 0.5;
+                this.gainNode = null;
+                this.sourceNodes = [];
+                this.intervalIds = []; // Mengelola banyak timer untuk efek acak
+                this.isPlaying = false;
+                this.isMuted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                    this.gainNode = this.ctx.createGain();
+                    this.gainNode.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+                    this.gainNode.connect(this.ctx.destination);
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            setVolume(val) {
+                this.volume = parseFloat(val);
+                if (this.gainNode && this.ctx && !this.isMuted) {
+                    // Smooth volume transition
+                    this.gainNode.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.05);
+                }
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                if (this.gainNode && this.ctx) {
+                    this.gainNode.gain.setTargetAtTime(this.isMuted ? 0 : this.volume, this.ctx.currentTime, 0.05);
+                }
+                return this.isMuted;
+            }
+
+            stop() {
+                this.isPlaying = false;
+                this.intervalIds.forEach(id => {
+                    clearInterval(id);
+                    clearTimeout(id);
+                });
+                this.intervalIds = [];
+                this.sourceNodes.forEach(node => {
+                    try { node.stop(); node.disconnect(); } catch(e){}
+                });
+                this.sourceNodes = [];
+            }
+
+            play(soundType) {
+                this.init();
+                this.stop();
+                this.currentSound = soundType;
+                if (soundType === 'none') return;
+                this.isPlaying = true;
+
+                if (soundType === 'rain') this.playRain();
+                else if (soundType === 'thunder') this.playThunder();
+                else if (soundType === 'waves') this.playWaves();
+                else if (soundType === 'campfire') this.playCampfire();
+                else if (soundType === 'wind') this.playWind();
+                else if (soundType === 'clock') this.playClock();
+                else if (soundType === 'stream') this.playStream();
+                else if (soundType === 'crickets') this.playCrickets();
+                else if (soundType === 'cafe') this.playCafe();
+                else if (soundType === 'binaural') this.playBinaural();
+                else if (soundType === 'space') this.playSpace();
+                else if (soundType === 'brownian') this.playBrownian();
+            }
+
+            // NOISE GENERATORS
+            createWhiteNoiseBuffer() {
+                const bufferSize = 2 * this.ctx.sampleRate;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                return buffer;
+            }
+
+            createPinkNoiseBuffer() {
+                const bufferSize = 2 * this.ctx.sampleRate;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + white * 0.0555179;
+                    b1 = 0.99332 * b1 + white * 0.0750759;
+                    b2 = 0.96900 * b2 + white * 0.1538520;
+                    b3 = 0.86650 * b3 + white * 0.3104856;
+                    b4 = 0.55000 * b4 + white * 0.5329522;
+                    b5 = -0.7616 * b5 - white * 0.0168980;
+                    output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                    output[i] *= 0.11;
+                    b6 = white * 0.115926;
+                }
+                return buffer;
+            }
+
+            createBrownNoiseBuffer() {
+                const bufferSize = 2 * this.ctx.sampleRate;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                let lastOut = 0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    output[i] = (lastOut + (0.02 * white)) / 1.02; // Leaky integrator
+                    lastOut = output[i];
+                    output[i] *= 3.5; // Compensate gain
+                }
+                return buffer;
+            }
+
+            // SYNTHESIS METHODS
+            playRain() {
+                // Base hiss
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = this.createPinkNoiseBuffer();
+                noise.loop = true;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 1500;
+                
+                noise.connect(filter); filter.connect(this.gainNode);
+                noise.start(); this.sourceNodes.push(noise);
+
+                // Rain drops (random high frequency bursts)
+                const drop = () => {
+                    if (!this.isPlaying) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600 + Math.random() * 600, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(1200 + Math.random() * 400, this.ctx.currentTime + 0.03);
+                    
+                    gain.gain.setValueAtTime(0.03 + Math.random() * 0.05, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
+                    
+                    osc.connect(gain); gain.connect(this.gainNode);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.03);
+                    
+                    this.intervalIds.push(setTimeout(drop, Math.random() * 80 + 20)); // Rapid random drops
+                };
+                drop();
+                setTimeout(drop, 40); // 2nd layer of drops
+            }
+
+            playThunder() {
+                this.playRain(); // Rain is the base
+
+                const thunderStrike = () => {
+                    if (!this.isPlaying) return;
+                    
+                    // Deep thunder rumble
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = this.createBrownNoiseBuffer();
+                    
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(150, this.ctx.currentTime); // Deep freq
+                    
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+                    
+                    // The crack & rumble envelope
+                    const now = this.ctx.currentTime;
+                    gain.gain.linearRampToValueAtTime(0.8 + Math.random()*0.4, now + 0.1); // Sudden strike
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 4 + Math.random() * 3); // Long decay
+                    
+                    noise.connect(filter); filter.connect(gain); gain.connect(this.gainNode);
+                    noise.start(); noise.stop(now + 8);
+                    
+                    this.intervalIds.push(setTimeout(thunderStrike, Math.random() * 15000 + 8000));
+                };
+                thunderStrike();
+            }
+
+            playClock() {
+                let isTick = true;
+                const tick = () => {
+                    if (!this.isPlaying) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    const filter = this.ctx.createBiquadFilter();
+                    
+                    osc.type = 'triangle';
+                    // Alternating pitch for tick-tock
+                    osc.frequency.setValueAtTime(isTick ? 1400 : 900, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.02);
+                    
+                    filter.type = 'highpass';
+                    filter.frequency.value = 800;
+
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
+                    
+                    osc.connect(filter); filter.connect(gain); gain.connect(this.gainNode);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.03);
+                    isTick = !isTick;
+                };
+                tick();
+                this.intervalIds.push(setInterval(tick, 1000));
+            }
+
+            playWaves() {
+                // Ocean waves use brown noise slowly swept by an LFO
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = this.createBrownNoiseBuffer();
+                noise.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 100; // Base rumble
+
+                // LFO for the rushing water frequency
+                const lfoFreq = this.ctx.createOscillator();
+                lfoFreq.frequency.value = 0.12; // 1 wave approx every 8 seconds
+                const lfoFreqGain = this.ctx.createGain();
+                lfoFreqGain.gain.value = 800; // Sweeps up to 900Hz
+                lfoFreq.connect(lfoFreqGain);
+                lfoFreqGain.connect(filter.frequency);
+
+                // LFO for volume fading in and out (synchronized)
+                const ampGain = this.ctx.createGain();
+                ampGain.gain.value = 0.1;
+                const lfoAmp = this.ctx.createOscillator();
+                lfoAmp.frequency.value = 0.12;
+                const lfoAmpGain = this.ctx.createGain();
+                lfoAmpGain.gain.value = 0.5; // Gain modulation depth
+                lfoAmp.connect(lfoAmpGain);
+                lfoAmpGain.connect(ampGain.gain);
+
+                noise.connect(filter); filter.connect(ampGain); ampGain.connect(this.gainNode);
+                
+                noise.start(); lfoFreq.start(); lfoAmp.start();
+                this.sourceNodes.push(noise, lfoFreq, lfoAmp);
+            }
+
+            playCampfire() {
+                // Deep fire roar
+                const fire = this.ctx.createBufferSource();
+                fire.buffer = this.createBrownNoiseBuffer();
+                fire.loop = true;
+                const fireFilter = this.ctx.createBiquadFilter();
+                fireFilter.type = 'lowpass'; fireFilter.frequency.value = 300;
+                const fireGain = this.ctx.createGain(); fireGain.gain.value = 0.6;
+                
+                fire.connect(fireFilter); fireFilter.connect(fireGain); fireGain.connect(this.gainNode);
+                fire.start(); this.sourceNodes.push(fire);
+
+                // Crackles & Pops
+                const crackle = () => {
+                    if (!this.isPlaying) return;
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = this.createWhiteNoiseBuffer();
+                    
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'highpass'; filter.frequency.value = 2500;
+                    
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.3 + Math.random() * 0.4, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.01 + Math.random() * 0.04);
+                    
+                    noise.connect(filter); filter.connect(gain); gain.connect(this.gainNode);
+                    noise.start(); noise.stop(this.ctx.currentTime + 0.1);
+                    
+                    this.intervalIds.push(setTimeout(crackle, Math.random() * 500 + 100));
+                };
+                crackle();
+            }
+
+            playWind() {
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = this.createPinkNoiseBuffer();
+                noise.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.Q.value = 1.5;
+
+                // Wander frequency using two LFOs
+                const lfo1 = this.ctx.createOscillator();
+                lfo1.frequency.value = 0.08;
+                const lfo1Gain = this.ctx.createGain(); lfo1Gain.gain.value = 300;
+                
+                const lfo2 = this.ctx.createOscillator();
+                lfo2.frequency.value = 0.13;
+                const lfo2Gain = this.ctx.createGain(); lfo2Gain.gain.value = 150;
+
+                filter.frequency.value = 350; // Center freq
+                lfo1.connect(lfo1Gain); lfo1Gain.connect(filter.frequency);
+                lfo2.connect(lfo2Gain); lfo2Gain.connect(filter.frequency);
+
+                noise.connect(filter); filter.connect(this.gainNode);
+                noise.start(); lfo1.start(); lfo2.start();
+                this.sourceNodes.push(noise, lfo1, lfo2);
+            }
+
+            playStream() {
+                // Background rushing water
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = this.createPinkNoiseBuffer();
+                noise.loop = true;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'highpass'; filter.frequency.value = 600;
+                const baseGain = this.ctx.createGain(); baseGain.gain.value = 0.2;
+                
+                noise.connect(filter); filter.connect(baseGain); baseGain.connect(this.gainNode);
+                noise.start(); this.sourceNodes.push(noise);
+
+                // Bubbles/Gurgles
+                const bubble = () => {
+                    if (!this.isPlaying) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    const startFreq = 400 + Math.random() * 400;
+                    osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(startFreq + 200, this.ctx.currentTime + 0.05); // pitch up bubble
+                    
+                    gain.gain.setValueAtTime(0.05 + Math.random() * 0.05, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+                    
+                    osc.connect(gain); gain.connect(this.gainNode);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.06);
+                    
+                    this.intervalIds.push(setTimeout(bubble, Math.random() * 200 + 50));
+                };
+                bubble();
+                setTimeout(bubble, 75); // multiple streams
+            }
+
+            playCrickets() {
+                // Distant night ambiance
+                const bg = this.ctx.createBufferSource();
+                bg.buffer = this.createPinkNoiseBuffer(); bg.loop = true;
+                const bgFilter = this.ctx.createBiquadFilter(); bgFilter.type = 'highpass'; bgFilter.frequency.value = 3500;
+                const bgGain = this.ctx.createGain(); bgGain.gain.value = 0.05;
+                bg.connect(bgFilter); bgFilter.connect(bgGain); bgGain.connect(this.gainNode);
+                bg.start(); this.sourceNodes.push(bg);
+
+                // Distinct chirps using Amplitude Modulation
+                const chirp = () => {
+                    if (!this.isPlaying) return;
+                    const now = this.ctx.currentTime;
+                    
+                    // The main high pitch
+                    const osc = this.ctx.createOscillator();
+                    osc.type = 'sine'; osc.frequency.value = 4500 + Math.random() * 300;
+                    
+                    // The rapid vibration (AM)
+                    const mod = this.ctx.createOscillator();
+                    mod.type = 'square'; mod.frequency.value = 45; // 45 vibrations per sec
+                    
+                    const amGain = this.ctx.createGain();
+                    amGain.gain.value = 0; // modulated
+                    
+                    mod.connect(amGain.gain);
+                    osc.connect(amGain);
+                    
+                    const envGain = this.ctx.createGain();
+                    envGain.gain.setValueAtTime(0, now);
+                    
+                    // 3 consecutive chirps
+                    for (let i = 0; i < 3; i++) {
+                        envGain.gain.setValueAtTime(0.15, now + i * 0.12);
+                        envGain.gain.setValueAtTime(0, now + i * 0.12 + 0.06);
+                    }
+                    
+                    amGain.connect(envGain); envGain.connect(this.gainNode);
+                    osc.start(now); mod.start(now);
+                    osc.stop(now + 0.5); mod.stop(now + 0.5);
+                    
+                    this.intervalIds.push(setTimeout(chirp, Math.random() * 2500 + 1000));
+                };
+                chirp();
+            }
+
+            playCafe() {
+                // Background chatter / murmur
+                const murmur = this.ctx.createBufferSource();
+                murmur.buffer = this.createPinkNoiseBuffer(); murmur.loop = true;
+                
+                const filter1 = this.ctx.createBiquadFilter();
+                filter1.type = 'lowpass'; filter1.frequency.value = 1800;
+                const filter2 = this.ctx.createBiquadFilter();
+                filter2.type = 'highpass'; filter2.frequency.value = 300;
+                
+                const mGain = this.ctx.createGain(); mGain.gain.value = 0.3;
+                murmur.connect(filter1); filter1.connect(filter2); filter2.connect(mGain); mGain.connect(this.gainNode);
+                murmur.start(); this.sourceNodes.push(murmur);
+
+                // Occasional cup clinks
+                const clink = () => {
+                    if (!this.isPlaying) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    // High metallic pitch
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(2500 + Math.random() * 1500, this.ctx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0.04 + Math.random() * 0.05, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+                    
+                    osc.connect(gain); gain.connect(this.gainNode);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+                    
+                    this.intervalIds.push(setTimeout(clink, Math.random() * 4000 + 1000));
+                };
+                clink();
+            }
+
+            playBinaural() {
+                // Scientific alpha waves (approx 10Hz diff, base freq ~200Hz for depth)
+                const merger = this.ctx.createChannelMerger(2);
+
+                const oscL = this.ctx.createOscillator();
+                oscL.type = 'sine';
+                oscL.frequency.value = 200; // Left ear
+
+                const oscR = this.ctx.createOscillator();
+                oscR.type = 'sine';
+                oscR.frequency.value = 210; // Right ear (10Hz Alpha difference)
+
+                const gainL = this.ctx.createGain(); gainL.gain.value = 0.2;
+                const gainR = this.ctx.createGain(); gainR.gain.value = 0.2;
+
+                oscL.connect(gainL); gainL.connect(merger, 0, 0);
+                oscR.connect(gainR); gainR.connect(merger, 0, 1);
+
+                merger.connect(this.gainNode);
+                oscL.start(); oscR.start();
+                this.sourceNodes.push(oscL, oscR);
+            }
+
+            playSpace() {
+                // Eerie minor chord drone (C minor)
+                const freqs = [65.41, 77.78, 98.00]; // C2, Eb2, G2
+                
+                freqs.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    
+                    // Slow, independent LFOs for detuning each note
+                    const lfo = this.ctx.createOscillator();
+                    lfo.frequency.value = 0.05 + (idx * 0.02);
+                    const lfoGain = this.ctx.createGain();
+                    lfoGain.gain.value = 1.5; // Slight pitch bend
+                    lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+                    
+                    const gain = this.ctx.createGain();
+                    gain.gain.value = 0.15; // Soft mix
+                    
+                    // LFO for volume pulsing
+                    const volLfo = this.ctx.createOscillator();
+                    volLfo.frequency.value = 0.03 + (idx * 0.01);
+                    const volLfoGain = this.ctx.createGain();
+                    volLfoGain.gain.value = 0.08;
+                    volLfo.connect(volLfoGain); volLfoGain.connect(gain.gain);
+                    
+                    osc.connect(gain); gain.connect(this.gainNode);
+                    osc.start(); lfo.start(); volLfo.start();
+                    this.sourceNodes.push(osc, lfo, volLfo);
+                });
+            }
+
+            playBrownian() {
+                // Pure deep rumble (ideal for blocking distraction)
+                const source = this.ctx.createBufferSource();
+                source.buffer = this.createBrownNoiseBuffer();
+                source.loop = true;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 300; // Roll off highs
+                
+                const gain = this.ctx.createGain();
+                gain.gain.value = 1.2;
+                
+                source.connect(filter); filter.connect(gain); gain.connect(this.gainNode);
+                source.start(); this.sourceNodes.push(source);
+            }
+
+            playChime() {
+                this.init();
+                // A bright, celebratory major chord for finishing
+                const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                freqs.forEach((freq, idx) => {
+                    setTimeout(() => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                        
+                        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 2.0); // Long sustain
+                        
+                        osc.connect(gain);
+                        gain.connect(this.gainNode);
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 2.0);
+                    }, idx * 150); // Arpeggiated sequence
+                });
+            }
+        }
+
+        const soundEngine = new AmbientSynthEngine();
+        
+        let focusMinutes = 25;
+        let selectedSound = 'rain';
+        const soundInfo = {
+            'rain': { name: 'Hujan', icon: '🌧️' },
+            'thunder': { name: 'Badai & Hujan', icon: '⛈️' },
+            'waves': { name: 'Ombak Laut', icon: '🌊' },
+            'campfire': { name: 'Api Unggun', icon: '🪵' },
+            'wind': { name: 'Angin Malam', icon: '🍃' },
+            'clock': { name: 'Detik Jam', icon: '⏱️' },
+            'stream': { name: 'Gemericik Air', icon: '💧' },
+            'crickets': { name: 'Jangkrik Malam', icon: '🦗' },
+            'cafe': { name: 'Ambien Kafe', icon: '☕' },
+            'binaural': { name: 'Gelombang Alpha', icon: '🧠' },
+            'space': { name: 'Kosmik Drone', icon: '🌌' },
+            'brownian': { name: 'Derau Cokelat', icon: '🎧' },
+            'none': { name: 'Hening', icon: '🔕' }
+        };
+
+        let timerInterval = null;
+        let totalSeconds = 0;
+        let remainingSeconds = 0;
+        let isPaused = false;
+        let uiFadeTimeout = null;
+
+        // DOM ELEMENTS
+        const setupView = document.getElementById('setup-view');
+        const focusView = document.getElementById('focus-view');
+        const durationSlider = document.getElementById('duration-slider');
+        const durationValText = document.getElementById('duration-val');
+        const timerDisplay = document.getElementById('timer-display');
+        const progressBar = document.getElementById('progress-bar');
+        const volumeSlider = document.getElementById('volume-slider');
+        const volumeContainer = document.getElementById('volume-container');
+        const soundIndicator = document.getElementById('sound-indicator');
+        const controlsBar = document.getElementById('controls-bar');
+        const finishModal = document.getElementById('finish-modal');
+
+        const radius = 88;
+        const circumference = 2 * Math.PI * radius; // ~552.92
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const sunIcon = document.getElementById('theme-sun');
+            const moonIcon = document.getElementById('theme-moon');
+
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            } else {
+                html.classList.add('dark');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            }
+        }
+
+        // DURATION & SOUND HANDLERS
+        durationSlider.addEventListener('input', (e) => {
+            focusMinutes = parseInt(e.target.value);
+            durationValText.textContent = `${focusMinutes} Menit`;
+            updatePresetButtons(focusMinutes);
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            soundEngine.setVolume(e.target.value);
+        });
+
+        function setPreset(mins) {
+            focusMinutes = mins;
+            durationSlider.value = mins;
+            durationValText.textContent = `${focusMinutes} Menit`;
+            updatePresetButtons(mins);
+        }
+
+        function updatePresetButtons(mins) {
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                if (btn.textContent === `${mins}m`) {
+                    btn.className = "preset-btn active py-2 text-xs font-semibold rounded-xl border border-emerald-500/60 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition";
+                } else {
+                    btn.className = "preset-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/40 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition";
+                }
+            });
+        }
+
+        function selectSound(soundKey) {
+            selectedSound = soundKey;
+            document.querySelectorAll('.sound-card').forEach(card => {
+                card.className = "sound-card flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-center gap-1 text-slate-700 dark:text-slate-300";
+            });
+
+            const activeCard = document.getElementById(`sound-${soundKey}`);
+            if (activeCard) {
+                activeCard.className = "sound-card active flex flex-col items-center justify-center p-2.5 rounded-xl border border-emerald-500/60 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition text-center gap-1";
+            }
+
+            if (soundKey === 'none') {
+                volumeContainer.classList.add('opacity-30', 'pointer-events-none');
+            } else {
+                volumeContainer.classList.remove('opacity-30', 'pointer-events-none');
+            }
+        }
+
+        function startFocusMode() {
+            totalSeconds = focusMinutes * 60;
+            remainingSeconds = totalSeconds;
+            isPaused = false;
+
+            // Auto Fullscreen & Landscape lock
+            try {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                }
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            } catch(e) {}
+
+            // Sound indicator
+            const info = soundInfo[selectedSound];
+            soundIndicator.innerHTML = `<span>${info.icon}</span><span>${info.name}</span>`;
+            soundEngine.play(selectedSound);
+
+            // Switch views
+            setupView.classList.add('hidden');
+            focusView.classList.remove('hidden');
+            focusView.classList.add('flex');
+
+            updateTimerDisplay();
+            
+            clearInterval(timerInterval);
+            timerInterval = setInterval(tick, 1000);
+
+            resetControlsFadeTimer();
+        }
+
+        function tick() {
+            if (isPaused) return;
+
+            remainingSeconds--;
+            updateTimerDisplay();
+
+            if (remainingSeconds <= 0) {
+                finishFocusSession();
+            }
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+            const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            
+            timerDisplay.textContent = formatted;
+            document.title = `${formatted} - Sesi Fokus`;
+
+            // Dynamic Stroke offset progress
+            const progress = remainingSeconds / totalSeconds;
+            const offset = circumference - (progress * circumference);
+            progressBar.style.strokeDashoffset = offset;
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const pauseIcon = document.getElementById('pause-icon');
+            const playIcon = document.getElementById('play-icon');
+
+            if (isPaused) {
+                pauseIcon.classList.add('hidden');
+                playIcon.classList.remove('hidden');
+                soundEngine.stop();
+            } else {
+                pauseIcon.classList.remove('hidden');
+                playIcon.classList.add('hidden');
+                soundEngine.play(selectedSound);
+            }
+        }
+
+        function toggleMute() {
+            const isMuted = soundEngine.toggleMute();
+            document.getElementById('sound-on-icon').classList.toggle('hidden', isMuted);
+            document.getElementById('sound-off-icon').classList.toggle('hidden', !isMuted);
+        }
+
+        function finishFocusSession() {
+            clearInterval(timerInterval);
+            soundEngine.stop();
+            soundEngine.playChime();
+            
+            finishModal.classList.remove('hidden');
+            finishModal.classList.add('flex');
+        }
+
+        function closeFinishModal() {
+            finishModal.classList.add('hidden');
+            finishModal.classList.remove('flex');
+            stopFocusMode();
+        }
+
+        function stopFocusMode() {
+            clearInterval(timerInterval);
+            soundEngine.stop();
+
+            try {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(() => {});
+                }
+            } catch(e) {}
+
+            document.title = "Zen Pomodoro - Timer Fokus Minimalis";
+            
+            focusView.classList.add('hidden');
+            focusView.classList.remove('flex');
+            setupView.classList.remove('hidden');
+
+            document.getElementById('pause-icon').classList.remove('hidden');
+            document.getElementById('play-icon').classList.add('hidden');
+        }
+
+        function resetControlsFadeTimer() {
+            controlsBar.classList.remove('opacity-0', 'pointer-events-none');
+            clearTimeout(uiFadeTimeout);
+            uiFadeTimeout = setTimeout(() => {
+                if (!focusView.classList.contains('hidden')) {
+                    controlsBar.classList.add('opacity-0', 'pointer-events-none');
+                }
+            }, 3000);
+        }
+
+        window.addEventListener('mousemove', resetControlsFadeTimer);
+        window.addEventListener('touchstart', resetControlsFadeTimer);
+    </script>
+</body>
+</html>
