@@ -434,6 +434,16 @@
         let pipWindow = null;
         let originalParent = null;
 
+        // FUNGSI PENTING: Mencari ID Elemen baik di Window Utama maupun Jendela PiP (Layar-di-atas-layar)
+        // Karena elemen berpindah saat PiP, document.getElementById standar akan gagal (null) dan membuat Freeze
+        function getEl(id) {
+            let el = document.getElementById(id);
+            if (!el && pipWindow) {
+                el = pipWindow.document.getElementById(id);
+            }
+            return el;
+        }
+
         const soundInfo = {
             'rain': { name: 'Hujan', icon: '🌧️' },
             'thunder': { name: 'Badai', icon: '⛈️' },
@@ -450,7 +460,6 @@
             'none': { name: 'Hening', icon: '🔕' }
         };
 
-        // Theme Toggle (Light/Dark Mode)
         function toggleTheme() {
             const html = document.documentElement;
             html.classList.toggle('dark');
@@ -458,7 +467,6 @@
             document.getElementById('theme-moon').classList.toggle('hidden');
         }
 
-        // Inputs
         document.getElementById('custom-duration').addEventListener('input', (e) => {
             let val = parseInt(e.target.value);
             if (isNaN(val) || val < 1) val = 1;
@@ -502,23 +510,27 @@
         }
 
         function updateDigit(elementId, newValue) {
-            const container = document.getElementById(elementId);
+            // Menggunakan getEl agar elemen di PiP window tetap terdeteksi
+            const container = getEl(elementId);
+            if (!container) return; // Mencegah crash jika terputus
+
             const currentValStr = container.dataset.value;
             const newValStr = String(newValue);
 
-            // Jika angka sama, abaikan
             if (currentValStr === newValStr && container.innerHTML !== '') return;
             
             container.dataset.value = newValStr;
 
-            if (document.hidden) {
+            // Jika jendela PiP aktif, jangan hentikan animasi karena tab browser terminimize
+            const isDocHidden = pipWindow ? false : document.hidden;
+
+            if (isDocHidden) {
                 container.innerHTML = `<span class="digit-text text-slate-900 dark:text-white current">${newValStr}</span>`;
                 return;
             }
 
             const currentDigit = container.querySelector('.digit-text.current');
             
-            // Buat angka baru (berada di atas)
             const newDigit = document.createElement('span');
             newDigit.className = 'digit-text next text-blue-500 dark:text-blue-400';
             newDigit.innerText = newValStr;
@@ -526,7 +538,6 @@
             
             container.appendChild(newDigit);
 
-            // Angka lama terdorong ke BAWAH
             if (currentDigit) {
                 const animOut = currentDigit.animate([
                     { transform: 'translateY(0)', opacity: 1, filter: 'blur(0)' },
@@ -535,7 +546,6 @@
                 animOut.onfinish = () => currentDigit.remove();
             }
 
-            // Angka baru masuk dari ATAS ke TENGAH
             const animIn = newDigit.animate([
                 { transform: 'translateY(-100%)', opacity: 0, filter: 'blur(4px)' },
                 { transform: 'translateY(0)', opacity: 1, filter: 'blur(0)' }
@@ -559,27 +569,29 @@
 
             soundEngine.play(selectedSound);
 
-            // Transisi Deepin Style
             document.getElementById('setup-view').style.transform = 'scale(0.95)';
             document.getElementById('setup-view').style.opacity = '0';
             
             setTimeout(() => {
                 document.getElementById('setup-view').classList.add('hidden');
                 
-                const focusView = document.getElementById('focus-view');
-                focusView.classList.remove('hidden');
-                focusView.classList.add('flex');
-                
-                // Trigger reflow
-                void focusView.offsetWidth;
-                focusView.classList.remove('opacity-0');
-                focusView.classList.add('opacity-100');
+                const focusView = getEl('focus-view');
+                if (focusView) {
+                    focusView.classList.remove('hidden');
+                    focusView.classList.add('flex');
+                    
+                    void focusView.offsetWidth;
+                    focusView.classList.remove('opacity-0');
+                    focusView.classList.add('opacity-100');
+                }
             }, 300);
 
-            // Reset Odometer
             ['digit-m1', 'digit-m2', 'digit-s1', 'digit-s2'].forEach(id => {
-                document.getElementById(id).dataset.value = '';
-                document.getElementById(id).innerHTML = '';
+                const el = getEl(id);
+                if (el) {
+                    el.dataset.value = '';
+                    el.innerHTML = '';
+                }
             });
             
             updateTimerDisplay();
@@ -607,20 +619,27 @@
             updateDigit('digit-s2', strSecs[1]);
             
             document.title = `${strMins}:${strSecs} - Fokus`;
+            if (pipWindow) {
+                pipWindow.document.title = `${strMins}:${strSecs} - Fokus`;
+            }
         }
 
         function togglePause() {
             isPaused = !isPaused;
-            document.getElementById('pause-icon').classList.toggle('hidden', isPaused);
-            document.getElementById('play-icon').classList.toggle('hidden', !isPaused);
+            const pauseIcon = getEl('pause-icon');
+            const playIcon = getEl('play-icon');
+            if(pauseIcon) pauseIcon.classList.toggle('hidden', isPaused);
+            if(playIcon) playIcon.classList.toggle('hidden', !isPaused);
             isPaused ? soundEngine.stop() : soundEngine.play(selectedSound);
-            resetControlsFadeTimer(); // Memastikan navigasi tampil ketika menekan pause
+            resetControlsFadeTimer(); 
         }
 
         function toggleMute() {
             const isMuted = soundEngine.toggleMute();
-            document.getElementById('sound-on-icon').classList.toggle('hidden', isMuted);
-            document.getElementById('sound-off-icon').classList.toggle('hidden', !isMuted);
+            const soundOnIcon = getEl('sound-on-icon');
+            const soundOffIcon = getEl('sound-off-icon');
+            if(soundOnIcon) soundOnIcon.classList.toggle('hidden', isMuted);
+            if(soundOffIcon) soundOffIcon.classList.toggle('hidden', !isMuted);
         }
 
         function finishFocusSession() {
@@ -628,35 +647,40 @@
             soundEngine.stop();
             soundEngine.playChime();
             
-            const modal = document.getElementById('finish-modal');
-            const modalContent = document.getElementById('finish-modal-content');
+            const modal = getEl('finish-modal');
+            const modalContent = getEl('finish-modal-content');
             
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            
-            // Animasi pop masuk
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.classList.add('opacity-100');
-                modalContent.classList.remove('scale-95');
-                modalContent.classList.add('scale-100');
-            }, 10);
+            if (modal && modalContent) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    modal.classList.add('opacity-100');
+                    modalContent.classList.remove('scale-95');
+                    modalContent.classList.add('scale-100');
+                }, 10);
+            }
         }
 
         function closeFinishModal() {
-            const modal = document.getElementById('finish-modal');
-            const modalContent = document.getElementById('finish-modal-content');
+            const modal = getEl('finish-modal');
+            const modalContent = getEl('finish-modal-content');
             
-            modal.classList.remove('opacity-100');
-            modal.classList.add('opacity-0');
-            modalContent.classList.remove('scale-100');
-            modalContent.classList.add('scale-95');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
+            if (modal && modalContent) {
+                modal.classList.remove('opacity-100');
+                modal.classList.add('opacity-0');
+                modalContent.classList.remove('scale-100');
+                modalContent.classList.add('scale-95');
+                
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    stopFocusMode();
+                }, 300);
+            } else {
                 stopFocusMode();
-            }, 300);
+            }
         }
 
         function stopFocusMode() {
@@ -664,54 +688,66 @@
             soundEngine.stop();
             try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch(e) {}
             
+            const focusView = getEl('focus-view');
+
             if (pipWindow) {
                 pipWindow.close();
-                if (originalParent) {
-                    originalParent.appendChild(document.getElementById('focus-view'));
+                if (originalParent && focusView) {
+                    originalParent.appendChild(focusView);
                 }
                 pipWindow = null;
             }
             
             document.title = "Zen Pomodoro";
             
-            const focusView = document.getElementById('focus-view');
-            focusView.classList.remove('opacity-100');
-            focusView.classList.add('opacity-0');
+            if (focusView) {
+                focusView.classList.remove('opacity-100');
+                focusView.classList.add('opacity-0');
+            }
             
-            // Kembalikan kursor ke normal jika sebelumnya hilang
             document.body.style.cursor = 'default';
+            if(pipWindow) pipWindow.document.body.style.cursor = 'default';
             
             setTimeout(() => {
-                focusView.classList.add('hidden');
-                focusView.classList.remove('flex');
+                if (focusView) {
+                    focusView.classList.add('hidden');
+                    focusView.classList.remove('flex');
+                }
                 
                 const setupView = document.getElementById('setup-view');
-                setupView.classList.remove('hidden');
-                
-                setTimeout(() => {
-                    setupView.style.transform = 'scale(1)';
-                    setupView.style.opacity = '1';
-                }, 10);
+                if (setupView) {
+                    setupView.classList.remove('hidden');
+                    setTimeout(() => {
+                        setupView.style.transform = 'scale(1)';
+                        setupView.style.opacity = '1';
+                    }, 10);
+                }
             }, 500);
         }
 
         function resetControlsFadeTimer() {
-            const bar = document.getElementById('controls-bar');
-            bar.classList.remove('opacity-0', 'translate-y-12');
-            bar.classList.add('opacity-100', 'translate-y-0');
+            const bar = getEl('controls-bar');
+            const focusView = getEl('focus-view');
             
-            // Pastikan kursor nampak saat user sedang berinteraksi
-            if (!document.getElementById('focus-view').classList.contains('hidden')) {
+            if (bar) {
+                bar.classList.remove('opacity-0', 'translate-y-12');
+                bar.classList.add('opacity-100', 'translate-y-0');
+            }
+            
+            if (focusView && !focusView.classList.contains('hidden')) {
                 document.body.style.cursor = 'default';
+                if (pipWindow) pipWindow.document.body.style.cursor = 'default';
             }
 
             clearTimeout(uiFadeTimeout);
             uiFadeTimeout = setTimeout(() => {
-                if (!document.getElementById('focus-view').classList.contains('hidden') && !isPaused) {
-                    bar.classList.remove('opacity-100', 'translate-y-0');
-                    bar.classList.add('opacity-0', 'translate-y-12');
-                    // Sembunyikan kursor tikus (mouse) untuk kebersihan maksimal layar
+                if (focusView && !focusView.classList.contains('hidden') && !isPaused) {
+                    if (bar) {
+                        bar.classList.remove('opacity-100', 'translate-y-0');
+                        bar.classList.add('opacity-0', 'translate-y-12');
+                    }
                     document.body.style.cursor = 'none';
+                    if (pipWindow) pipWindow.document.body.style.cursor = 'none';
                 }
             }, 2500);
         }
@@ -727,7 +763,6 @@
                 }
 
                 try {
-                    // Membuka Jendela Melayang Baru
                     pipWindow = await window.documentPictureInPicture.requestWindow({
                         width: 480,
                         height: 320,
@@ -736,7 +771,6 @@
                     const focusView = document.getElementById('focus-view');
                     originalParent = focusView.parentNode;
 
-                    // Mengkloning semua gaya (Tailwind + CSS) agar tidak berantakan
                     [...document.styleSheets].forEach((styleSheet) => {
                         try {
                             const cssRules = [...styleSheet.cssRules].map(r => r.cssText).join('');
@@ -751,22 +785,25 @@
                         }
                     });
 
-                    // Menyelaraskan Mode Gelap / Terang
                     if (document.documentElement.classList.contains('dark')) {
                         pipWindow.document.documentElement.classList.add('dark');
                     }
 
-                    // Memindahkan Jam ke Jendela Baru
                     pipWindow.document.body.appendChild(focusView);
                     pipWindow.document.body.className = document.body.className;
                     pipWindow.document.body.style.overflow = 'hidden';
 
-                    // Mengembalikan Jam ketika Jendela PiP ditutup manual
+                    // EVENT LISTENERS UNTUK PiP
+                    // Penting agar interaksi mouse di jendela mungil juga membuat kontrol melayang (dock) muncul
+                    pipWindow.addEventListener('mousemove', resetControlsFadeTimer);
+                    pipWindow.addEventListener('touchstart', resetControlsFadeTimer);
+
                     pipWindow.addEventListener('pagehide', () => {
                         if (originalParent && focusView) {
                             originalParent.appendChild(focusView);
                         }
                         pipWindow = null;
+                        resetControlsFadeTimer(); // Kembalikan kontrol saat kembali ke tab utama
                     });
 
                 } catch (error) {
@@ -781,7 +818,7 @@
             try { 
                 if (document.fullscreenElement) {
                     document.exitFullscreen().catch(()=>{}); 
-                    showToast("Mode Penuh ditutup. (Layar-di-atas-layar butuh browser Chromium terbaru)");
+                    showToast("Mode Penuh ditutup. (Layar-di-atas-layar butuh browser modern/Chromium terbaru)");
                 } else {
                     showToast("Browser Anda belum mendukung Layar-di-atas-layar (PiP).");
                 }
@@ -792,7 +829,13 @@
             const toast = document.createElement('div');
             toast.className = 'fixed top-8 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur-xl dark:bg-white/90 text-white dark:text-slate-900 px-6 py-3.5 rounded-[20px] shadow-2xl z-[9999] font-medium text-[13px] transition-all duration-300 opacity-0 -translate-y-4 border border-white/10';
             toast.innerText = msg;
-            document.body.appendChild(toast);
+            
+            // Render Toast di jendela yang sedang aktif
+            if (pipWindow) {
+                pipWindow.document.body.appendChild(toast);
+            } else {
+                document.body.appendChild(toast);
+            }
             
             setTimeout(() => {
                 toast.classList.remove('opacity-0', '-translate-y-4');
