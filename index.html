@@ -112,8 +112,9 @@
         /* ODOMETER SLIDE ANIMATION */
         .digit-box {
             position: relative;
-            width: 14vmin; 
-            height: 20vmin;
+            width: 22vw; 
+            height: 32vw;
+            max-height: 85vh; /* Mencegah overflow pada monitor ultra-wide */
             overflow: hidden; 
             display: inline-block;
         }
@@ -126,17 +127,22 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 26vmin;
-            font-weight: 700;
+            font-size: min(29vw, 85vh); /* Ukuran masif dinamis edge-to-edge */
+            font-weight: 800; /* Font ditebalkan agar proporsional dan masif */
             font-variant-numeric: tabular-nums;
             line-height: 1;
             user-select: none;
+            letter-spacing: -0.02em; /* Mengurangi jarak margin antar angka */
         }
         .colon {
-            font-size: 22vmin;
-            font-weight: 700;
+            font-size: min(24vw, 75vh);
+            font-weight: 800;
             line-height: 1;
-            margin-bottom: 2vmin; 
+            margin-bottom: min(2vw, 2vh); 
+            width: 6vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             user-select: none;
             opacity: 0.5;
         }
@@ -234,22 +240,17 @@
     <!-- FOCUS VIEW (Deepin Immersive Mode) -->
     <div id="focus-view" class="fixed inset-0 bg-slate-100/30 dark:bg-slate-950/40 backdrop-blur-3xl text-slate-900 dark:text-white hidden flex-col items-center justify-center z-50 select-none opacity-0 transition-opacity duration-700">
         
-        <div class="relative flex flex-col items-center justify-center z-10 w-full h-full space-y-12">
+        <div class="relative flex flex-col items-center justify-center z-10 w-full h-full">
             
-            <div class="flex items-center space-x-3 bg-white/20 dark:bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 dark:border-white/10 shadow-sm">
-                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                <span class="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">Mode Fokus</span>
-            </div>
-
-            <!-- ODOMETER TIMER CONTAINER -->
-            <div class="relative flex items-center justify-center gap-1 z-10 font-sans">
+            <!-- ODOMETER TIMER CONTAINER (EDGE-TO-EDGE) -->
+            <div class="relative flex items-center justify-center w-full max-w-[100vw] z-10 font-sans tracking-tight">
                 <!-- Menit Puluhan -->
                 <div class="digit-box" id="digit-m1"></div>
                 <!-- Menit Satuan -->
                 <div class="digit-box" id="digit-m2"></div>
                 
                 <!-- Titik Dua -->
-                <div class="colon mx-2 text-slate-400 dark:text-slate-600">:</div>
+                <div class="colon text-slate-400 dark:text-slate-600">:</div>
                 
                 <!-- Detik Puluhan -->
                 <div class="digit-box" id="digit-s1"></div>
@@ -257,10 +258,6 @@
                 <div class="digit-box" id="digit-s2"></div>
             </div>
 
-            <!-- Sound Indicator -->
-            <div id="sound-indicator" class="flex items-center space-x-2 text-sm font-semibold text-slate-600 dark:text-slate-300 bg-white/30 dark:bg-black/30 backdrop-blur-md px-5 py-2 rounded-full border border-white/40 dark:border-white/10 shadow-sm">
-                <span>🌧️</span> <span>Hujan</span>
-            </div>
         </div>
 
         <!-- FLOATING CONTROLS (Deepin Dock Style) -->
@@ -552,8 +549,6 @@
                 if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
             } catch(e) {}
 
-            const info = soundInfo[selectedSound] || soundInfo['none'];
-            document.getElementById('sound-indicator').innerHTML = `<span>${info.icon}</span><span>${info.name}</span>`;
             soundEngine.play(selectedSound);
 
             // Transisi Deepin Style
